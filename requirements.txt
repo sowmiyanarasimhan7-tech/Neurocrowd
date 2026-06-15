@@ -1,0 +1,13 @@
+ultralytics
+opencv-python
+streamlit
+xgboost
+scikit-learn
+pandas
+numpy
+librosa
+sounddevice
+fer
+matplotlib
+seaborn
+joblib
