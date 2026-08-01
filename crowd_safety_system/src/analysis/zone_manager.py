@@ -1,12 +1,14 @@
 import cv2
 import yaml
 import numpy as np
+from collections import deque
 
 
 class ZoneManager:
 
     def __init__(self,
-                 config_path="zones/configs/venue_config.yaml"):
+                 config_path="zones/configs/venue_config.yaml",
+                 history_len=30):
 
         with open(config_path, "r") as f:
             self.config = yaml.safe_load(f)
@@ -42,10 +44,12 @@ class ZoneManager:
 
                 "risk_level": "SAFE",
 
-                "exits": z["exits"]
-            }
+                "exits": z["exits"],
 
-    ######################################################################
+                # rolling history of occupancy % -> used for trend + the
+                # predictive risk model's "is this getting worse" features
+                "history": deque(maxlen=history_len),
+            }
 
     def update_scale(self, frame):
 
@@ -62,8 +66,6 @@ class ZoneManager:
             pts[:, 1] *= sy
 
             zone["polygon"] = pts.astype(np.int32)
-
-    ######################################################################
 
     def assign_person_to_zone(self, center):
 
@@ -82,11 +84,17 @@ class ZoneManager:
 
         return None
 
-    ######################################################################
-
     def count_people_per_zone(self,
                               detections,
-                              frame=None):
+                              frame=None,
+                              confirmed_only=True):
+        """
+        confirmed_only: if detections have gone through the tracker (have a
+        'confirmed' key), only count confirmed ones. This is what actually
+        fixes flicker-driven inaccurate counts — unconfirmed (single-frame)
+        detections are shown dimmed on screen but excluded from the zone
+        tallies that drive risk scoring.
+        """
 
         if frame is not None:
             self.update_scale(frame)
@@ -97,6 +105,9 @@ class ZoneManager:
         zone_people = {}
 
         for det in detections:
+
+            if confirmed_only and not det.get("confirmed", True):
+                continue
 
             zid = self.assign_person_to_zone(det["center"])
 
@@ -110,8 +121,6 @@ class ZoneManager:
         self.calculate_density()
 
         return zone_people
-
-    ######################################################################
 
     def calculate_density(self):
 
@@ -127,6 +136,8 @@ class ZoneManager:
 
             zone["occupancy"] = occupancy * 100
 
+            zone["history"].append(zone["occupancy"])
+
             if occupancy < 0.50:
 
                 zone["risk_level"] = "SAFE"
@@ -139,7 +150,26 @@ class ZoneManager:
 
                 zone["risk_level"] = "CRITICAL"
 
-    ######################################################################
+    def get_zone_trend(self, zid):
+        """
+        Returns (slope, arrow) describing whether this zone's occupancy is
+        climbing, falling, or flat over its recent history. slope is in
+        percentage-points per frame. This is the raw signal the predictive
+        risk model uses to forecast danger before the threshold is crossed.
+        """
+        hist = self.zones[zid]["history"]
+        if len(hist) < 4:
+            return 0.0, "-"
+        y = np.array(hist)
+        x = np.arange(len(y))
+        slope = float(np.polyfit(x, y, 1)[0])
+        if slope > 0.4:
+            arrow = "UP"
+        elif slope < -0.4:
+            arrow = "DOWN"
+        else:
+            arrow = "FLAT"
+        return slope, arrow
 
     def draw_zones(self,
                    frame):
@@ -228,13 +258,13 @@ class ZoneManager:
 
         return frame
 
-    ######################################################################
-
     def get_zone_summary(self):
 
         summary = {}
 
         for zid, zone in self.zones.items():
+
+            slope, arrow = self.get_zone_trend(zid)
 
             summary[zid] = {
 
@@ -250,13 +280,15 @@ class ZoneManager:
 
                 "capacity": zone["max_capacity"],
 
-                "exits": zone["exits"]
+                "exits": zone["exits"],
+
+                "trend_slope": round(slope, 3),
+
+                "trend_arrow": arrow,
 
             }
 
         return summary
-
-    ######################################################################
 
     def get_total_people(self):
 

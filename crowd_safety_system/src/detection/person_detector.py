@@ -7,10 +7,9 @@ class PersonDetector:
     """
     Person Detection Module
     -----------------------
-    • Auto GPU detection
-    • Works on CPU and NVIDIA GPU
-    • Compatible with current project
-    • Optimized for hackathon demo
+    - Auto GPU detection
+    - Works on CPU and NVIDIA GPU
+    - Optimized for hackathon demo
     """
 
     PERSON_CLASS = 0
@@ -18,8 +17,8 @@ class PersonDetector:
     def __init__(
         self,
         model_path="yolov8s.pt",
-        confidence=0.45,
-        min_box_area=900
+        confidence=0.25,
+        min_box_area=300
     ):
 
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -41,7 +40,9 @@ class PersonDetector:
 
         results = self.model.predict(
             source=frame,
+            imgsz=1280,
             conf=self.confidence,
+            iou=0.45,
             classes=[self.PERSON_CLASS],
             device=self.device,
             verbose=False
@@ -85,39 +86,34 @@ class PersonDetector:
         return detections
 
     def draw_detections(self, frame, detections):
-
+        """
+        Draws each detection. If the detection has been through the tracker
+        (has 'track_id'/'confirmed' keys), shows a stable ID and dims
+        not-yet-confirmed boxes so it's visually obvious what's being
+        counted vs. still being verified.
+        """
         for det in detections:
 
             x1, y1, x2, y2 = det["bbox"]
-
             conf = det["confidence"]
 
-            cv2.rectangle(
-                frame,
-                (x1, y1),
-                (x2, y2),
-                (0, 255, 0),
-                2,
-            )
+            has_track = "track_id" in det
+            confirmed = det.get("confirmed", True)
 
-            cv2.circle(
-                frame,
-                det["center"],
-                4,
-                (0, 0, 255),
-                -1,
-            )
+            color = (0, 255, 0) if confirmed else (0, 165, 255)
+            thickness = 2 if confirmed else 1
 
-            label = f"Person {conf:.2f}"
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
+            cv2.circle(frame, det["center"], 4, (0, 0, 255), -1)
+
+            if has_track:
+                label = f'ID {det["track_id"]}' + ("" if confirmed else " ...")
+            else:
+                label = f"Person {conf:.2f}"
 
             cv2.putText(
-                frame,
-                label,
-                (x1, y1 - 8),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.55,
-                (0, 255, 0),
-                2,
+                frame, label, (x1, y1 - 8),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2,
             )
 
         return frame
