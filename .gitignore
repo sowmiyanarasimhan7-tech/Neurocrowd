@@ -1,4 +1,9 @@
 venv/
+env/
+.vscode/
+.idea/
 __pycache__/
 *.pyc
-.vscode/
+runs/
+*.log
+error_log.txt
