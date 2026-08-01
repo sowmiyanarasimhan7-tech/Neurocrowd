@@ -117,3 +117,4 @@ class PersonDetector:
             )
 
         return frame
+
