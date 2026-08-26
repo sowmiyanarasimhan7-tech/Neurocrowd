@@ -1,9 +1,31 @@
+# Python Virtual Environments
 venv/
 env/
-.vscode/
-.idea/
+ENV/
+.venv/
+
+# Python Cache & Bytecode
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# IDE & OS Files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Model Weights & Large Video Artifacts
+*.pt
+*.onnx
+*.engine
+videos/*.mp4
+videos/*.avi
+videos/*.mov
+temp_video.mp4
+
+# Log & Output Directories
 runs/
 *.log
 error_log.txt
