@@ -1,144 +1,85 @@
-# NeuroCrowd — Predictive Crowd Safety System
+# 🛡️ NeuroCrowd: AI-Powered Proactive Crowd Intelligence & Early Risk Detection System
 
-AI-powered crowd monitoring and early-warning system built for the 36-Hour
-Hackathon, NIT Trichy — ISRO Bharatiya Antariksh Hackathon track,
-"AI for Smart Cities and Transportation."
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Framework](https://img.shields.io/badge/UI-Streamlit-FF4B4B.svg)](https://streamlit.io/)
+[![Computer Vision](https://img.shields.io/badge/CV-YOLOv8%20%7C%20OpenCV-green.svg)](https://ultralytics.com/)
+[![ML Model](https://img.shields.io/badge/ML-XGBoost-orange.svg)](https://xgboost.readthedocs.io/)
+[![License](https://img.shields.io/badge/License-MIT-brightgreen.svg)](LICENSE)
 
-## The Idea
+**NeuroCrowd** is an AI-driven crowd monitoring and predictive risk safety system designed for large public venues (festivals, stadiums, transit hubs, rallies). Existing surveillance systems are primarily **reactive**—detecting incidents only after they occur. NeuroCrowd transforms surveillance into a **proactive decision support system** that measures real physical crowd density ($p/m^2$), analyzes motion panic turbulence, and forecasts stampede risks **3 to 5 minutes in advance**.
 
-Most crowd safety systems only show what's already happening — a camera
-feed a human has to watch and react to. NeuroCrowd predicts danger a few
-seconds *before* it happens, by tracking how fast an area is filling up
-and whether crowd motion is calm or surging, then alerting the right
-people in time to actually act.
+---
 
-## Problem
+## 🚀 Key Features
 
-Large public gatherings remain vulnerable to overcrowding and panic-induced
-stampedes. Existing surveillance is reactive — it records incidents instead
-of predicting them, delaying emergency response and increasing casualty risk.
+* **🎯 Dense Crowd Head & Person Detection**: Leverages **YOLOv8** with adaptive sensitivity thresholds and contrast-based head contour detection for tightly packed crowds.
+* **📐 Spatial Area & Obstacle Calibration Engine**: Calculates true physical density ($p/m^2$) by deducting space occupied by static objects ($A_{\text{usable}} = A_{\text{total}} - A_{\text{obstacle}}$).
+* **Fruin's Level of Service (LoS)**: Categorizes density into international safety benchmarks (`SAFE`, `MODERATE`, `HIGH_RISK`, `CRITICAL`).
+* **🌪️ Optical Flow Motion & Turbulence**: Tracks crowd flow velocity ($m/s$) and directional chaos index using Farneback Optical Flow.
+* **🔮 XGBoost Predictive Risk Classifier**: Forecasts stampede hazards 3 to 5 minutes in advance and computes a continuous **0–100 Danger Index**.
+* **📊 Authority Decision Support Dashboard**: Built with **Streamlit**, featuring translucent heatmaps, dynamic zone HUD grids, Plotly danger trend charts, and **Automated Tactical Dispatch Advisories** for emergency responders.
+* **📹 Multi-Camera & Video Manager**: Supports live webcam streams, RTSP camera URLs, drag-and-drop MP4 video files, and video folder presets.
 
-## Solution
+---
 
-NeuroCrowd detects people in live/recorded video, tracks them per named
-zone, measures crowd density and motion patterns, and uses a machine
-learning model trained to forecast dangerous conditions **before** they
-happen — then surfaces that on a live dashboard with actionable
-recommendations.
+## 🏗️ System Architecture
 
-## Architecture
-Video source
-|
-v
-Person Detection (YOLOv8, GPU-accelerated, FP16)
-|
-v
-Tracking (persistent IDs, filters single-frame false positives)
-|
-v
-Zone Assignment (density, occupancy %, trend, trend-projected occupancy) <--- Motion Analysis
-| (global + per-zone,
-v optical flow)
-Predictive Risk Model (RandomForest, forecasts ~8 steps ahead)
-|
-v
-Recommendation Engine (actionable alerts per zone)
-|
-v
-Live Dashboard (video + stats panel)
+```
+Live Surveillance Stream ──► YOLOv8 Head Detector ──► Spatial Area Calibration (Net Usable Area)
+                                                            │
+Tactical Advisories ◄── Streamlit Dashboard ◄── XGBoost 5-Min Risk Model ◄── Farneback Optical Flow
+```
 
+---
 
-## Project structure
+## 📁 Repository Structure
 
-crowd_safety_system/
-├── README.md
-├── main.py
-├── requirements.txt
-├── src/
-│ ├── detection/person_detector.py
-│ ├── tracking/tracker.py
-│ ├── analysis/zone_manager.py
-│ ├── analysis/motion_analyzer.py
-│ ├── prediction/risk_predictor.py
-│ ├── recommendation/engine.py
-│ ├── dashboard/ui.py
-│ └── utils/
-├── tools/zone_picker.py
-├── zones/configs/venue_config.yaml
-├── yolov8n.pt / yolov8s.pt
-├── models/risk_model.pkl
-│
-├── presentation 1.pdf
-├── presentation 2.pdf
-├── TEAM_INTRODUCTION.pdf
-└── HACKATHON_EXPERIENCE.pdf
+```
+NeuroCrowd/
+├── app.py                  # Main Streamlit Dashboard Application
+├── cv_engine.py            # OpenCV + YOLOv8 + Optical Flow + Heatmap Engine
+├── spatial_calibration.py  # Net Usable Space & Fruin Density Calibration Engine
+├── predictive_model.py     # XGBoost Risk Classifier & Danger Index Forecaster
+├── config.py               # Fruin benchmarks, risk theme colors & tactical advisories
+├── train_model.py          # Model training & retraining script
+├── requirements.txt        # Python dependencies
+└── README.md               # Project documentation
+```
 
+---
 
-## What's novel here (say this to judges)
+## 🛠️ Quickstart & Setup Guide
 
-1. **Predictive, not reactive** — trained to forecast risk ~8 steps
-   ahead using each zone's occupancy trend, not just the current instant.
-2. **Density + motion fusion, per zone** — a dense-but-calm zone and a
-   dense-and-surging zone score differently.
-3. **Honest crowd estimation** — real detected count + a labeled
-   estimated range based on known detector recall limits, plus a
-   trend-projected count — every number traces to a real calculation.
-4. **Tracking-based flicker correction** — a person only counts once
-   confirmed across 2+ consecutive frames.
-5. **Dual-channel intent** — dashboard for authorities, designed to
-   extend to direct crowd alerts in a full deployment.
-
-## Honesty note for judges
-
-The predictive model trains on **synthetic data** — no real labeled
-stampede footage exists to train on in 36 hours. Path to product: pilot
-deployment → log real sequences → retrain the same pipeline, zero
-architecture changes needed.
-
-## Setup
-
+### 1. Clone the Repository
 ```bash
-cd crowd_safety_system
+git clone https://github.com/sowmiyanarasimhan7-tech/Neurocrowd.git
+cd Neurocrowd
+```
+
+### 2. Create & Activate Virtual Environment
+```powershell
 python -m venv venv
-venv\Scripts\activate
+.\venv\Scripts\Activate
+```
+
+### 3. Install Dependencies
+```powershell
 pip install -r requirements.txt
 ```
 
-## Before running: define your zones
-
-```bash
-python tools/zone_picker.py --source data/videos/crowd_test.mp4
+### 4. Run the NeuroCrowd Application
+```powershell
+streamlit run app.py
 ```
-Click to outline each zone, `n` to name + set capacity, `s` to save.
 
-## Running
+Access the interactive dashboard in your web browser at `http://localhost:8501`.
 
-```bash
-python main.py --source data/videos/crowd_test.mp4
-```
-First run takes ~20-30s longer while the risk model trains itself once.
+---
 
-**Controls:** `q` quit, `f` toggle optical-flow view.
+## 🎓 Academic Credit & Author Information
 
-## Tech stack
+Developed for **AM5305 – Machine Learning PBL Project Review**.
 
-| Component | Technology | Why |
-|---|---|---|
-| Detection | YOLOv8, FP16 on GPU | fast, GPU-accelerated |
-| Tracking | Custom centroid tracker | lightweight |
-| Zones | OpenCV polygon geometry | precise per-zone occupancy |
-| Motion | OpenCV Farneback optical flow | no training data needed |
-| Risk prediction | scikit-learn RandomForest | fast, interpretable |
-| Dashboard | OpenCV rendering | real-time |
-
-## Submission contents
-
-- `presentation 1.pdf` / `presentation 2.pdf`
-- `TEAM_INTRODUCTION.pdf`
-- `HACKATHON_EXPERIENCE.pdf`
-
-## Troubleshooting
-
-- **Low FPS**: check startup log for `Device: CUDA` vs `CPU`.
-- **"EST. RANGE 0-0"**: `zone_manager.py` out of date.
-- **Video cropped to a corner**: `main.py`/`dashboard/ui.py` out of sync.
+* **Institution**: Chennai Institute of Technology, Chennai (Autonomous)
+* **Author**: Sowmiya Narasimhan & Team
+* **Tech Stack**: Python, OpenCV, YOLOv8, XGBoost, Streamlit, Plotly
