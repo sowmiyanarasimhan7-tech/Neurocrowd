@@ -78,8 +78,6 @@ Access the interactive dashboard in your web browser at `http://localhost:8501`.
 
 ## 🎓 Academic Credit & Author Information
 
-Developed for **AM5305 – Machine Learning PBL Project Review**.
-
 * **Institution**: Chennai Institute of Technology, Chennai (Autonomous)
-* **Author**: Sowmiya Narasimhan & Team
+* **Author**: Sowmiya Narasimhan & syed ali fathima N 
 * **Tech Stack**: Python, OpenCV, YOLOv8, XGBoost, Streamlit, Plotly
