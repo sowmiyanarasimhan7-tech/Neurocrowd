@@ -1,6 +1,7 @@
 """
 NeuroCrowd: AI-Powered Crowd Intelligence & Early Risk Prediction System
-Streamlit Main Dashboard Application (Supports Multi-Camera & Multiple Video Switching)
+Streamlit Main Dashboard Application
+Integrated with Audio Voice Warning System & Dynamic Zone Naming Engine
 """
 
 import streamlit as st
@@ -60,6 +61,8 @@ if "danger_history" not in st.session_state:
     st.session_state.danger_history = []
 if "time_history" not in st.session_state:
     st.session_state.time_history = []
+if "last_voice_alert_time" not in st.session_state:
+    st.session_state.last_voice_alert_time = 0
 if "cv_engine" not in st.session_state:
     st.session_state.cv_engine = CrowdCVEngine()
 if "ml_predictor" not in st.session_state:
@@ -67,18 +70,35 @@ if "ml_predictor" not in st.session_state:
 
 st.sidebar.markdown("### 🛡️ NeuroCrowd Control Panel")
 
+with st.sidebar.expander("🔊 Audio & Voice Alert System", expanded=True):
+    enable_voice = st.checkbox("Enable Audio Voice Warnings 🗣️", value=True, help="Automatically speaks emergency voice alerts out loud when a zone crosses safe density!")
+
 with st.sidebar.expander("🎯 Detection Accuracy & Head Mode", expanded=True):
     conf_thresh = st.slider("Detection Sensitivity (Conf)", min_value=0.05, max_value=0.60, value=0.15, step=0.05)
     dense_head_mode = st.checkbox("Dense Crowd Head Mode", value=True)
 
 with st.sidebar.expander("📐 Spatial & Area Calibration", expanded=True):
-    venue_name = st.text_input("Venue Name", value=DEFAULT_VENUE_SETTINGS["venue_name"])
+    venue_name = st.text_input("Venue / Event Name", value="Public Gathering Plaza")
     auto_estimate_area = st.checkbox("⚡ Auto-Estimate Area from Camera Perspective", value=True)
     manual_total_area = st.number_input("Total Physical Area (m²)", min_value=50.0, max_value=10000.0, value=600.0, step=50.0, disabled=auto_estimate_area)
     obstacle_pct = st.slider("Static Obstacle Deduction %", min_value=0.0, max_value=50.0, value=20.0)
 
-with st.sidebar.expander("🧩 Zone Layout Grid", expanded=False):
-    grid_preset = st.selectbox("Grid Layout", ["2x3 (6 Zones)", "2x2 (4 Zones)", "3x3 (9 Zones)"], index=0)
+with st.sidebar.expander("🧩 Dynamic Zone Naming System", expanded=True):
+    zone_naming_option = st.selectbox(
+        "Zone Naming Convention",
+        ["Numeric (Zone 1, Zone 2, Zone 3)", "Grid Coordinates (Zone A1, A2, B1)", "Specific Event Landmarks (Stage, Entry, Exit)"],
+        index=0,
+        help="Use Numeric/Grid for general public gatherings (parks, streets, plazas) or Landmarks for concerts/stadiums."
+    )
+    
+    if "Numeric" in zone_naming_option:
+        naming_style = "numeric"
+    elif "Grid" in zone_naming_option:
+        naming_style = "grid"
+    else:
+        naming_style = "landmarks"
+
+    grid_preset = st.selectbox("Grid Partitioning", ["2x3 (6 Zones)", "2x2 (4 Zones)", "3x3 (9 Zones)"], index=0)
     grid_rows, grid_cols = (2, 3) if "2x3" in grid_preset else ((2, 2) if "2x2" in grid_preset else (3, 3))
 
 with st.sidebar.expander("👁️ Visual Overlays & Transparency", expanded=True):
@@ -103,11 +123,7 @@ if not os.path.exists(videos_dir):
     os.makedirs(videos_dir, exist_ok=True)
 
 if video_source_type == "Upload Multiple Video Files":
-    uploaded_files = st.sidebar.file_uploader(
-        "Upload Crowd Videos (.mp4, .avi, .mov)", 
-        type=["mp4", "avi", "mov", "mkv"], 
-        accept_multiple_files=True
-    )
+    uploaded_files = st.sidebar.file_uploader("Upload Crowd Videos (.mp4, .avi, .mov)", type=["mp4", "avi", "mov", "mkv"], accept_multiple_files=True)
     if uploaded_files:
         file_map = {}
         for f in uploaded_files:
@@ -119,22 +135,17 @@ if video_source_type == "Upload Multiple Video Files":
         if selected_file_name:
             active_video_name = selected_file_name
             cap = cv2.VideoCapture(file_map[selected_file_name])
-    else:
-        st.sidebar.info("💡 Upload one or multiple video files above to switch between camera angles!")
 
 elif video_source_type == "Videos Folder Presets":
     local_files = [f for f in os.listdir(videos_dir) if f.endswith(('.mp4', '.avi', '.mov', '.mkv'))]
     if local_files:
         selected_preset = st.sidebar.selectbox("📷 Select Preset Camera Video", local_files)
         active_video_name = selected_preset
-        video_path = os.path.join(videos_dir, selected_preset)
-        cap = cv2.VideoCapture(video_path)
-    else:
-        st.sidebar.warning(f"⚠️ No video files found in `{videos_dir}/` folder. Place `.mp4` videos inside `{videos_dir}/` directory!")
+        cap = cv2.VideoCapture(os.path.join(videos_dir, selected_preset))
 
 elif video_source_type == "Webcam / Live Stream":
     rtsp_url = st.sidebar.text_input("RTSP / Stream URL (Blank for Webcam 0)", value="")
-    active_video_name = "Live Security Camera / RTSP Stream"
+    active_video_name = "Live Security Camera Stream"
     cap = cv2.VideoCapture(rtsp_url if rtsp_url.strip() != "" else 0)
 
 elif video_source_type == "Synthetic Demo Generator":
@@ -142,6 +153,7 @@ elif video_source_type == "Synthetic Demo Generator":
 
 header_placeholder = st.empty()
 kpi_placeholder = st.empty()
+voice_placeholder = st.empty()
 
 col_l, col_r = st.columns([7, 5])
 with col_l:
@@ -182,14 +194,33 @@ def process_video_frame(frame):
         occupancy_ratio=min(1.0, real_density / 4.0), motion_mag=motion_mag, turbulence=turbulence
     )
 
-    zones = generate_zone_grid(w, h, grid_rows, grid_cols, total_area_sqm, obstacle_pct)
+    zones = generate_zone_grid(w, h, grid_rows, grid_cols, total_area_sqm, obstacle_pct, naming_style=naming_style)
     zones = map_detections_to_zones(centers, zones, total_area_sqm, obstacle_pct)
+
+    # Voice Alert Engine
+    danger_zones = [z for z in zones if z["risk"] in ["HIGH_RISK", "CRITICAL"]]
+    current_time = time.time()
+    if enable_voice and danger_zones and (current_time - st.session_state.last_voice_alert_time > 8.0):
+        st.session_state.last_voice_alert_time = current_time
+        top_danger_zone = danger_zones[0]["name"]
+        alert_msg = f"Warning! High crowd density detected in {top_danger_zone}. Initiate crowd diversion immediately."
+        
+        with voice_placeholder.container():
+            st.components.v1.html(
+                f"""
+                <script>
+                    var msg = new SpeechSynthesisUtterance('{alert_msg}');
+                    msg.rate = 1.0;
+                    msg.pitch = 1.1;
+                    window.speechSynthesis.speak(msg);
+                </script>
+                """,
+                height=0
+            )
 
     processed_frame = frame.copy()
     if show_heatmap and len(centers) > 0:
-        processed_frame = st.session_state.cv_engine.draw_density_heatmap(
-            processed_frame, centers, opacity=heatmap_opacity
-        )
+        processed_frame = st.session_state.cv_engine.draw_density_heatmap(processed_frame, centers, opacity=heatmap_opacity)
     if show_boxes:
         for x1, y1, x2, y2 in boxes:
             cv2.rectangle(processed_frame, (x1, y1), (x2, y2), (0, 230, 118), 1)
