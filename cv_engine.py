@@ -1,5 +1,6 @@
 """
 NeuroCrowd Computer Vision & Dense Crowd Processing Engine
+With Precision Circularity & Aspect Ratio Filters for Head Blob Detection
 """
 
 import cv2
@@ -22,7 +23,7 @@ class CrowdCVEngine:
             self.hog = cv2.HOGDescriptor()
             self.hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
 
-    def detect_people(self, frame, conf_thresh=0.15, dense_head_mode=True):
+    def detect_people(self, frame, conf_thresh=0.15, dense_head_mode=False):
         h, w = frame.shape[:2]
         boxes = []
         centers = []
@@ -39,26 +40,34 @@ class CrowdCVEngine:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             blur = cv2.GaussianBlur(gray, (5, 5), 0)
             thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                           cv2.THRESH_BINARY_INV, 11, 2)
+                                           cv2.THRESH_BINARY_INV, 15, 3)
             
             contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             existing_centers = np.array(centers) if len(centers) > 0 else np.empty((0, 2))
             
             for cnt in contours:
                 area = cv2.contourArea(cnt)
-                if 25 < area < 400:
-                    M = cv2.moments(cnt)
-                    if M["m00"] != 0:
-                        cx = int(M["m10"] / M["m00"])
-                        cy = int(M["m01"] / M["m00"])
-                        
-                        if len(existing_centers) > 0:
-                            dists = np.linalg.norm(existing_centers - np.array([cx, cy]), axis=1)
-                            if np.min(dists) < 18:
-                                continue
-                        
-                        centers.append((cx, cy))
-                        boxes.append((cx - 8, cy - 8, cx + 8, cy + 8))
+                perimeter = cv2.arcLength(cnt, True)
+                
+                # Head geometry filters: size, circularity, and aspect ratio
+                if 40 < area < 350 and perimeter > 0:
+                    circularity = 4.0 * np.pi * area / (perimeter * perimeter)
+                    bx, by, bw, bh = cv2.boundingRect(cnt)
+                    aspect_ratio = float(bw) / float(bh) if bh > 0 else 0
+                    
+                    if 0.55 < circularity < 1.0 and 0.65 < aspect_ratio < 1.35:
+                        M = cv2.moments(cnt)
+                        if M["m00"] != 0:
+                            cx = int(M["m10"] / M["m00"])
+                            cy = int(M["m01"] / M["m00"])
+                            
+                            if len(existing_centers) > 0:
+                                dists = np.linalg.norm(existing_centers - np.array([cx, cy]), axis=1)
+                                if np.min(dists) < 22:
+                                    continue
+                            
+                            centers.append((cx, cy))
+                            boxes.append((cx - 10, cy - 10, cx + 10, cy + 10))
 
         return boxes, centers
 
