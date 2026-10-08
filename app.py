@@ -1,6 +1,7 @@
 """
 NeuroCrowd: AI-Powered Crowd Intelligence & Early Risk Prediction System
-Streamlit Main Dashboard Application (With Audio Test Button & Feature Manual)
+Streamlit Main Dashboard Application
+Integrated with Audio Voice Warning System & Dynamic Zone Naming Engine
 """
 
 import streamlit as st
@@ -70,23 +71,11 @@ if "ml_predictor" not in st.session_state:
 st.sidebar.markdown("### 🛡️ NeuroCrowd Control Panel")
 
 with st.sidebar.expander("🔊 Audio & Voice Alert System", expanded=True):
-    enable_voice = st.checkbox("Enable Audio Voice Warnings 🗣️", value=True)
-    if st.button("🔊 Test Voice Alert Now"):
-        st.components.v1.html(
-            """
-            <script>
-                var msg = new SpeechSynthesisUtterance('Test Audio Alert. NeuroCrowd Voice Warnings operational.');
-                msg.rate = 1.0;
-                msg.pitch = 1.1;
-                window.speechSynthesis.speak(msg);
-            </script>
-            """,
-            height=0
-        )
+    enable_voice = st.checkbox("Enable Audio Voice Warnings 🗣️", value=True, help="Automatically speaks emergency voice alerts out loud when a zone crosses safe density!")
 
 with st.sidebar.expander("🎯 Detection Accuracy & Head Mode", expanded=True):
-    conf_thresh = st.slider("Detection Sensitivity (Conf)", min_value=0.05, max_value=0.60, value=0.25, step=0.05, help="Standard value (0.25) for webcams/testing. Lower value (0.05-0.10) for packed crowds!")
-    dense_head_mode = st.checkbox("Dense Crowd Head Mode", value=False, help="Uncheck for single person/webcam feeds; check for packed festival/stadium feeds!")
+    conf_thresh = st.slider("Detection Sensitivity (Conf)", min_value=0.05, max_value=0.60, value=0.15, step=0.05)
+    dense_head_mode = st.checkbox("Dense Crowd Head Mode", value=True)
 
 with st.sidebar.expander("📐 Spatial & Area Calibration", expanded=True):
     venue_name = st.text_input("Venue / Event Name", value="Public Gathering Plaza")
@@ -98,7 +87,8 @@ with st.sidebar.expander("🧩 Dynamic Zone Naming System", expanded=True):
     zone_naming_option = st.selectbox(
         "Zone Naming Convention",
         ["Numeric (Zone 1, Zone 2, Zone 3)", "Grid Coordinates (Zone A1, A2, B1)", "Specific Event Landmarks (Stage, Entry, Exit)"],
-        index=0
+        index=0,
+        help="Use Numeric/Grid for general public gatherings (parks, streets, plazas) or Landmarks for concerts/stadiums."
     )
     
     if "Numeric" in zone_naming_option:
